@@ -1,0 +1,15 @@
+# Бинарники и артефакты сборки
+*.exe
+*.out
+/bin/
+/dist/
+
+# Покрытие тестами
+*.test
+coverage.out
+coverage.html
+
+# Окружение и IDE
+.env
+.idea/
+.vscode/
