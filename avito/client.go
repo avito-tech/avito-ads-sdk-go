@@ -41,6 +41,7 @@ func NewClient(clientID, clientSecret string, accountID int64, opts ...Option) (
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
+	cfg.userAgent = buildUserAgent(cfg.userAgent)
 
 	tr := &transport{cfg: cfg}
 	c := &Client{cfg: cfg, tr: tr}

@@ -52,7 +52,11 @@ type CampaignsFilter struct{ f *Filter }
 // NewCampaignsFilter создаёт фильтр кампаний.
 func NewCampaignsFilter() *CampaignsFilter { return &CampaignsFilter{f: NewFilter()} }
 
-func (c *CampaignsFilter) IDs(ids []int64) *CampaignsFilter     { c.f.Set("ids", ids); return c }
+func (c *CampaignsFilter) IDs(ids []int64) *CampaignsFilter { c.f.Set("ids", ids); return c }
+
+// Statuses фильтрует по статусам кампании (константы CampaignStatus*, в том
+// числе will_launch_soon, partially_active, will_stop_soon, pausing, unpausing).
+// Значения не проверяются на стороне SDK.
 func (c *CampaignsFilter) Statuses(s []string) *CampaignsFilter { c.f.Set("statuses", s); return c }
 func (c *CampaignsFilter) PaymentModels(m []string) *CampaignsFilter {
 	c.f.Set("paymentModels", m)
@@ -128,6 +132,9 @@ func (c *CreativesFilter) CampaignTypes(t []string) *CreativesFilter {
 	c.f.Set("campaignTypes", t)
 	return c
 }
+
+// Statuses фильтрует по статусам креатива (константы CreativeStatus*, в том
+// числе will_launch_soon, pausing, unpausing). Значения не проверяются на стороне SDK.
 func (c *CreativesFilter) Statuses(s []string) *CreativesFilter  { c.f.Set("statuses", s); return c }
 func (c *CreativesFilter) Managers(ids []int64) *CreativesFilter { c.f.Set("managers", ids); return c }
 func (c *CreativesFilter) Advertisers(ids []int64) *CreativesFilter {

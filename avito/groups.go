@@ -24,7 +24,10 @@ func (s *GroupService) Iterate(ctx context.Context, req ListRequest, yield func(
 	}, yield)
 }
 
-// ChangeBudget изменяет бюджет группы (значение >= 1).
+// ChangeBudget изменяет бюджет группы (значение >= 1, в рублях).
+//
+// Если изменение нельзя применить в текущем состоянии группы, API отвечает
+// 409: проверяйте через IsConflict(err).
 //
 // POST v1/account/{accountID}/group/{groupID}/change-budget
 func (s *GroupService) ChangeBudget(ctx context.Context, groupID, budget int64) error {
@@ -36,7 +39,10 @@ func (s *GroupService) ChangeBudget(ctx context.Context, groupID, budget int64) 
 	return err
 }
 
-// ChangePrice изменяет ставку группы (значение >= 1).
+// ChangePrice изменяет ставку группы (значение >= 1, в рублях).
+//
+// Если изменение нельзя применить в текущем состоянии группы, API отвечает
+// 409: проверяйте через IsConflict(err).
 //
 // POST v1/account/{accountID}/group/{groupID}/change-price
 func (s *GroupService) ChangePrice(ctx context.Context, groupID, price int64) error {

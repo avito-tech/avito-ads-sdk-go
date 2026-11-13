@@ -18,6 +18,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+      - name: Version consistency
+        # Версия SDK (avito.Version) == info.version из openapi.json == avito.APIVersion.
+        run: |
+          spec=$(jq -r '.info.version' openapi.json)
+          api=$(sed -n 's/^[[:space:]]*APIVersion[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' avito/version.go)
+          sdk=$(sed -n 's/^[[:space:]]*Version[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' avito/version.go)
+          echo "openapi.json=$spec APIVersion=$api Version=$sdk"
+          if [ -z "$spec" ] || [ "$spec" != "$api" ] || [ "$spec" != "$sdk" ]; then
+            echo "Версии расходятся"
+            exit 1
+          fi
       - name: Build
         run: go build ./...
       - name: Vet

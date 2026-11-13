@@ -13,6 +13,16 @@ Go SDK для API **Авито Реклама** (Avito Ads API).
 
 Покрывает все основные методы API: аккаунт и баланс, дочерние аккаунты и переводы средств, рекламодателей, договоры, кампании, группы объявлений, креативы, статистику и управление пользователями. Построен **только на стандартной библиотеке** — никаких внешних зависимостей, поэтому встраивается в любой проект и не конфликтует с вашим набором библиотек.
 
+## Версия
+
+Версия SDK равна версии публичного API (swagger): SDK `1.4.0` реализует swagger `1.4.0`.
+
+```go
+fmt.Println(avito.Version, avito.APIVersion) // 1.4.0 1.4.0
+```
+
+Спецификация, по которой собран SDK, лежит в [`openapi.json`](openapi.json).
+
 ## Возможности
 
 - **Без зависимостей** — только stdlib (`net/http`, `encoding/json`).
@@ -90,6 +100,18 @@ client, _ := avito.NewClient(id, secret, accountID,
 )
 ```
 
+### User-Agent
+
+По умолчанию SDK отправляет `User-Agent: avito-ads-sdk-go/<версия>` (например,
+`avito-ads-sdk-go/1.4.0`) — и в запрос токена, и в запросы к API. `WithUserAgent` не заменяет
+метку SDK, а добавляет своё значение перед ней:
+
+| Опция | Заголовок |
+|---|---|
+| не задана | `avito-ads-sdk-go/1.4.0` |
+| `WithUserAgent("my-app/1.0")` | `my-app/1.0 avito-ads-sdk-go/1.4.0` |
+| `WithUserAgent("my-app/1.0 avito-ads-sdk-go/1.4.0")` | без изменений (метка не дублируется) |
+
 | Окружение | Базовый адрес |
 |---|---|
 | `WithProduction()` (по умолчанию) | `https://api.avito.ru/ads/` |
@@ -126,6 +148,93 @@ fmt.Println(stats.Campaign.TotalData.Views, stats.Campaign.TotalData.Clicks)
 // Пользователи
 _ = client.Users.Add(ctx, 42, avito.UserRoleAdmin)
 _ = client.Users.Delete(ctx, 42)
+```
+
+## Кампании, группы и креативы
+
+### Статус и причины статуса
+
+У кампании, группы и креатива есть `Status`, `StatusReasons` (все коды причин, `[]` — причин нет)
+и `TopStatusReason` (главная причина, `""` — не определена).
+
+```go
+_ = client.Campaigns.Iterate(ctx, avito.ListRequest{}, func(c avito.Campaign) bool {
+	switch c.Status {
+	case avito.CampaignStatusWillLaunchSoon, avito.CampaignStatusPartiallyActive:
+		fmt.Println(c.Name, "скоро запустится или работает частично")
+	case avito.CampaignStatusPaused:
+		if c.TopStatusReason != "" {
+			fmt.Println(c.Name, "на паузе, причина:", c.TopStatusReason)
+		}
+		fmt.Println("все причины:", c.StatusReasons)
+	default:
+		// Новые статусы и коды причин приходят как есть — предусмотрите ветку по умолчанию.
+	}
+	return true
+})
+```
+
+SDK не проверяет значения перечислений в ответах: если API вернёт статус, код причины или
+периодичность бюджета, которых нет в константах SDK, значение сохранится в поле без ошибки.
+
+### Бюджет кампании: nil вместо нуля
+
+`Campaign.Budget` и `Campaign.BudgetKopeks` — `*int64`. Если у групп кампании разная
+периодичность бюджета (`BudgetFrequency == avito.CampaignBudgetFrequencyMixed`), API не
+возвращает сумму и поле равно `nil`. У кампании без бюджета приходит `0`.
+
+```go
+switch {
+case c.Budget == nil:
+	fmt.Println("бюджет не суммируется:", c.BudgetFrequency) // mixed
+default:
+	fmt.Printf("бюджет %d ₽ (%s)\n", *c.Budget, c.BudgetFrequency)
+}
+```
+
+Точные суммы в копейках: `Balance.BalanceKopeks`, `Balance.BonusBalanceKopeks`,
+`StatsData.SpendKopeks`, `StatsData.SpendBonusKopeks`, `Campaign.BudgetKopeks`,
+`Group.BudgetKopeks`, `Group.PriceKopeks`.
+
+### Частотные ограничения группы
+
+```go
+for _, r := range group.FrequencyRules {
+	if r.Period == avito.FrequencyPeriodNoLimit {
+		continue
+	}
+	fmt.Printf("не более %d показов за %s\n", r.Count, r.Period)
+}
+```
+
+`Group.FrequencyCount` и `Group.FrequencyPeriod` устарели (соответствуют первому правилу).
+Периодичность бюджета группы — `Group.BudgetFrequency` (`daily` или `entirePeriod`).
+
+### Конфликт при изменении бюджета и ставки
+
+`ChangeBudget` и `ChangePrice` возвращают 409, если изменение нельзя применить в текущем
+состоянии группы:
+
+```go
+if err := client.Groups.ChangePrice(ctx, 555, 25); avito.IsConflict(err) {
+	// например, у группы автоматическое управление ставкой
+}
+```
+
+### Песочница: тестовый аккаунт
+
+`LegalType` обязателен. Ответ 207 — успех с предупреждениями: аккаунт создан, но часть
+подготовки не выполнена.
+
+```go
+created, err := client.Account.CreateSandboxAccount(ctx, avito.SandboxAccountInput{
+	INN: "7712345678", ShortName: "Тест", LongName: "ООО «Тест»", OGRN: "1177746123456",
+	LegalAddress: "Москва", LegalType: avito.LegalTypeUL,
+	Contact: map[string]any{"name": "Иван Иванов", "phone": "+79990000000"},
+})
+if err == nil && len(created.Warnings) > 0 {
+	log.Println("аккаунт подготовлен не полностью:", created.Warnings)
+}
 ```
 
 ## Договоры
@@ -174,7 +283,7 @@ _ = client.Campaigns.Iterate(ctx, avito.ListRequest{}, func(c avito.Campaign) bo
 
 ```go
 f := avito.NewCampaignsFilter().
-	Statuses([]string{avito.CampaignStatusActive}).
+	Statuses([]string{avito.CampaignStatusActive, avito.CampaignStatusPartiallyActive}).
 	ContractIDs([]int64{10, 20}).
 	CreatedAt(avito.DateRange{From: "2025-01-01", To: "2025-01-31"})
 
@@ -204,7 +313,7 @@ default:
 }
 ```
 
-Хелперы: `IsBadRequest`, `IsAuthentication`, `IsAccessDenied`, `IsNotFound`, `IsRateLimit`, `IsServerError`. Ошибки валидации на стороне клиента оборачивают `avito.ErrValidation` (проверяйте через `errors.Is`).
+Хелперы: `IsBadRequest`, `IsAuthentication`, `IsAccessDenied`, `IsNotFound`, `IsConflict` (409), `IsRateLimit`, `IsServerError`. Ошибки валидации на стороне клиента оборачивают `avito.ErrValidation` (проверяйте через `errors.Is`).
 
 ## Интеграция в популярные фреймворки
 
