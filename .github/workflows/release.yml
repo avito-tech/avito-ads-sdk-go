@@ -1,0 +1,41 @@
+# Релиз по тегу vX.Y.Z: проверка версии и тестов → GitHub Release → прогрев proxy.golang.org.
+# Тег должен совпадать с avito.Version и info.version в openapi.json.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Tag matches version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          spec=$(jq -r '.info.version' openapi.json)
+          sdk=$(sed -n 's/^[[:space:]]*Version[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' avito/version.go)
+          echo "tag=$tag openapi.json=$spec Version=$sdk"
+          [ "$tag" = "$spec" ] && [ "$tag" = "$sdk" ] || { echo "Тег не совпадает с версией SDK"; exit 1; }
+      - name: Test
+        run: go test -race ./...
+      - name: GitHub Release (notes from CHANGELOG)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v v="[$ver]" '/^## /{ if (p) exit; if (index($0, v)) { p = 1; next } } p' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || { echo "В CHANGELOG.md нет раздела [$ver]"; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
+      - name: Warm up proxy.golang.org
+        run: |
+          url="https://proxy.golang.org/github.com/avito-tech/avito-ads-sdk-go/@v/${GITHUB_REF_NAME}.info"
+          for i in 1 2 3 4 5 6; do curl -fsS "$url" && exit 0; sleep 20; done
+          echo "proxy.golang.org не отдал $GITHUB_REF_NAME"; exit 1
