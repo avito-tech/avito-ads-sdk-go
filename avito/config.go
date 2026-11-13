@@ -27,7 +27,9 @@ type config struct {
 	retryBaseWait time.Duration
 	tokenLeeway   time.Duration
 	tokenStorage  TokenStorage
-	userAgent     string
+	// userAgent — пользовательская часть User-Agent (WithUserAgent); итоговый
+	// заголовок собирает buildUserAgent в NewClient.
+	userAgent string
 }
 
 // Option — функциональная опция конфигурации клиента.
@@ -88,7 +90,12 @@ func WithTokenStorage(storage TokenStorage) Option {
 	}
 }
 
-// WithUserAgent задаёт значение заголовка User-Agent.
+// WithUserAgent задаёт пользовательскую часть заголовка User-Agent.
+//
+// Метка SDK ("avito-ads-sdk-go/<Version>") не заменяется, а дописывается через
+// пробел: WithUserAgent("my-app/1.0") даст "my-app/1.0 avito-ads-sdk-go/1.4.0".
+// Если значение уже содержит метку SDK, она не дублируется. Тот же заголовок
+// отправляется и в запрос токена, и в запросы к API.
 func WithUserAgent(ua string) Option {
 	return func(c *config) { c.userAgent = ua }
 }
@@ -105,7 +112,6 @@ func defaultConfig(clientID, clientSecret string, accountID int64) *config {
 		retryBaseWait: time.Second,
 		tokenLeeway:   60 * time.Second,
 		tokenStorage:  NewMemoryTokenStorage(),
-		userAgent:     "avito-ads-sdk-go/0.1.0",
 	}
 }
 

@@ -58,6 +58,13 @@ func IsAccessDenied(err error) bool { return statusError(err, 403) }
 // IsNotFound сообщает, что ошибка — это HTTP 404.
 func IsNotFound(err error) bool { return statusError(err, 404) }
 
+// IsConflict сообщает, что ошибка — это HTTP 409 (конфликт состояния).
+//
+// API возвращает 409 в GroupService.ChangeBudget и GroupService.ChangePrice,
+// когда изменение нельзя применить в текущем состоянии группы. Ошибка
+// остаётся *APIError: обработчики через errors.As продолжают её ловить.
+func IsConflict(err error) bool { return statusError(err, 409) }
+
 // IsRateLimit сообщает, что ошибка — это HTTP 429 (превышен лимит запросов).
 func IsRateLimit(err error) bool { return statusError(err, 429) }
 

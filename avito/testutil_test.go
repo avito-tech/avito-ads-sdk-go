@@ -14,6 +14,7 @@ type recordedRequest struct {
 	Method string
 	Path   string
 	Auth   string
+	UA     string
 	Body   string
 }
 
@@ -46,6 +47,7 @@ func (ts *testServer) dispatch(w http.ResponseWriter, r *http.Request) {
 		Method: r.Method,
 		Path:   r.URL.Path,
 		Auth:   r.Header.Get("Authorization"),
+		UA:     r.Header.Get("User-Agent"),
 		Body:   string(bodyBytes),
 	})
 	// Восстанавливаем тело на случай, если обработчику оно нужно.
