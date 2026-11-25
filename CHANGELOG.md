@@ -5,10 +5,52 @@
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.0.0/),
 проект придерживается [семантического версионирования](https://semver.org/lang/ru/).
 
+Версия SDK равна версии публичного API. Здесь описаны изменения SDK; изменения самого API —
+в [официальном changelog API Авито Рекламы](https://www.avito.ru/developers/api-catalog/ads/changelog), ссылки на его записи
+есть в каждом релизе начиная с 1.4.0.
+
+## [1.5.1] — 2026-11-25
+
+Синхронизация с публичным swagger 1.5.1 (включает изменения 1.5.0).
+
+Изменения API:
+
+- [2026-11-23](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-11-23) — swagger 1.5.1, конверсии в статистике;
+- [2026-11-16](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-11-16) — swagger 1.5.0, единый лимит длины `name`.
+
+### Added
+- Конверсии в статистике кампании и групп: опция `WithConversions()` (тип `StatisticsOption`)
+  у `Statistics.Campaign` и `Statistics.Groups`. В `StatsData` — `Conversions *Conversions`:
+  `Contacts`, `Subscriptions` (`*ConversionData`, только click-in), `GoalHits`, `CPAKopeks`,
+  `CR` (указатели: nil — значения нет, 0 — ноль), `GoalType` и `CustomGoal` (главная цель
+  click-out кампании). Без опции запрос не меняется. У креативов `Conversions` всегда nil.
+- Тип `ConversionGoalType` (`contacts`, `subscriptions`, `customGoal`); неизвестное значение
+  сохраняется строкой.
+
+### Changed
+- `Statistics.Groups` и `Statistics.Creatives` проверяют число ID до запроса: от 1 до 5000,
+  иначе `ErrValidation`. Раньше API отвечал на пустой список ошибкой 400; больше 5000 ID
+  API теперь тоже отклоняет.
+- У `Statistics.Campaign` и `Statistics.Groups` появился вариативный параметр. Вызовы не
+  меняются; интерфейсы с точной сигнатурой этих методов нужно обновить.
+- Лимит 99 символов у `name` кампаний, групп и креативов (swagger 1.5.0) методов SDK
+  не касается: методов создания и изменения имени в SDK нет.
+
 ## [1.4.0] — 2026-11-13
 
 Синхронизация с публичным swagger 1.4.0. С этой версии версия SDK равна версии
 публичного API (swagger): `avito.Version == avito.APIVersion == "1.4.0"`.
+
+Изменения API:
+
+- [2026-10-20](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-10-20) — swagger 1.4.0;
+- [2026-10-19](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-10-19);
+- [2026-09-30](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-09-30) — swagger 1.3.0;
+- [2026-09-04](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-09-04) — swagger 1.2.1;
+- [2026-08-24](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-08-24) — swagger 1.2.0;
+- [2026-07-22](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-07-22) — swagger 1.1.1;
+- [2026-06-30](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-06-30) — swagger 1.1.0;
+- [2026-06-06](https://www.avito.ru/developers/api-catalog/ads/changelog#info/2026-06-06).
 
 ### Breaking
 - `Campaign.Budget` теперь `*int64` (было `int64`), добавлено `Campaign.BudgetKopeks *int64`.

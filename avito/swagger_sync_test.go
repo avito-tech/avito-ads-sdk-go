@@ -384,3 +384,133 @@ func TestStatisticsKopeksAndCampaignStatistic(t *testing.T) {
 		t.Errorf("stats = %+v", st)
 	}
 }
+
+// --- swagger 1.5.1: конверсии и лимит ID в статистике ---
+
+func TestStatisticsConversionsClickIn(t *testing.T) {
+	ts := newTestServer()
+	defer ts.close()
+	ts.on("POST", "/token", tokenHandler("t"))
+	ts.on("POST", acct+"/campaigns/555/stats", jsonHandler(200, `{
+		"campaign":{"id":555,"data":[{"timestamp":"2026-11-01T00:00:00Z","conversions":{
+			"contacts":{"totalCount":5,"webCount":2,"mavCount":1,"androidCount":1,"iosCount":1,"cr":0.05},
+			"subscriptions":{"totalCount":0,"webCount":0,"mavCount":0,"androidCount":0,"iosCount":0,"cr":0},
+			"cpaKopeks":0,"goalType":"contacts","cr":0.05}}],
+			"totalData":{"conversions":null}},
+		"groups":[],
+		"creatives":[{"id":2,"groupId":1,"data":[],"totalData":{}}]
+	}`, nil))
+	c := newTestClient(t, ts)
+	st, err := c.Statistics.Campaign(context.Background(), 555, "2026-11-01", "2026-11-10", WithConversions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body := ts.requests[len(ts.requests)-1].Body; !strings.Contains(body, `"includeConversions":true`) {
+		t.Errorf("body = %s", body)
+	}
+	conv := st.Campaign.Data[0].Conversions
+	if conv == nil || conv.Contacts == nil || conv.Contacts.TotalCount != 5 || conv.Contacts.MavCount != 1 ||
+		conv.Contacts.AndroidCount != 1 || conv.Contacts.IOSCount != 1 || conv.Contacts.CR != 0.05 {
+		t.Fatalf("contacts = %+v", conv)
+	}
+	if conv.Subscriptions == nil || conv.Subscriptions.TotalCount != 0 {
+		t.Errorf("subscriptions = %+v", conv.Subscriptions)
+	}
+	if conv.CPAKopeks == nil || *conv.CPAKopeks != 0 || conv.CR == nil || *conv.CR != 0.05 ||
+		conv.GoalType != ConversionGoalTypeContacts {
+		t.Errorf("conversions = %+v", conv)
+	}
+	if conv.GoalHits != nil || conv.CustomGoal != nil {
+		t.Errorf("у click-in кампании нет целей: %+v", conv)
+	}
+	if st.Campaign.TotalData.Conversions != nil || st.Creatives[0].TotalData.Conversions != nil {
+		t.Error("null и отсутствие conversions должны давать nil")
+	}
+}
+
+func TestStatisticsConversionsClickOutGroups(t *testing.T) {
+	ts := newTestServer()
+	defer ts.close()
+	ts.on("POST", "/token", tokenHandler("t"))
+	ts.on("POST", acct+"/campaigns/555/groups/stats", jsonHandler(200, `{"groups":[
+		{"id":1,"data":[],"totalData":{"conversions":{"goalHits":10,"cpaKopeks":1250,"goalType":"customGoal",
+			"customGoal":{"id":42,"name":"Заявка"},"cr":0.05}}},
+		{"id":2,"data":[],"totalData":{"conversions":{"goalType":"brand_new"}}}
+	]}`, nil))
+	c := newTestClient(t, ts)
+	groups, err := c.Statistics.Groups(context.Background(), 555, "2026-11-01", "2026-11-10", []int64{1, 2}, WithConversions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body := ts.requests[len(ts.requests)-1].Body; !strings.Contains(body, `"includeConversions":true`) {
+		t.Errorf("body = %s", body)
+	}
+	conv := groups[0].TotalData.Conversions
+	if conv == nil || conv.GoalHits == nil || *conv.GoalHits != 10 || *conv.CPAKopeks != 1250 ||
+		conv.GoalType != ConversionGoalTypeCustomGoal || conv.CustomGoal == nil ||
+		conv.CustomGoal.ID != 42 || conv.CustomGoal.Name != "Заявка" {
+		t.Fatalf("conversions = %+v", conv)
+	}
+	if conv.Contacts != nil || conv.Subscriptions != nil {
+		t.Errorf("у click-out кампании нет контактов и подписок: %+v", conv)
+	}
+	unknown := groups[1].TotalData.Conversions
+	if unknown == nil || unknown.GoalType != "brand_new" || unknown.CR != nil {
+		t.Errorf("неизвестный goalType должен сохраняться: %+v", unknown)
+	}
+}
+
+func TestStatisticsWithoutConversionsDoesNotSendFlag(t *testing.T) {
+	ts := newTestServer()
+	defer ts.close()
+	ts.on("POST", "/token", tokenHandler("t"))
+	ts.on("POST", acct+"/campaigns/555/stats", jsonHandler(200, `{"campaign":{},"groups":[],"creatives":[]}`, nil))
+	ts.on("POST", acct+"/campaigns/555/groups/stats", jsonHandler(200, `{"groups":[]}`, nil))
+	ts.on("POST", acct+"/campaigns/555/creatives/stats", jsonHandler(200, `{"creatives":[]}`, nil))
+	c := newTestClient(t, ts)
+	ctx := context.Background()
+	if _, err := c.Statistics.Campaign(ctx, 555, "2026-11-01", "2026-11-10"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Statistics.Groups(ctx, 555, "2026-11-01", "2026-11-10", []int64{1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Statistics.Creatives(ctx, 555, "2026-11-01", "2026-11-10", []int64{1}); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range ts.requests {
+		if strings.Contains(r.Body, "includeConversions") {
+			t.Errorf("includeConversions не должен отправляться: %s", r.Body)
+		}
+	}
+}
+
+func TestStatisticsIDsLimit(t *testing.T) {
+	ts := newTestServer()
+	defer ts.close()
+	ts.on("POST", "/token", tokenHandler("t"))
+	ts.on("POST", acct+"/campaigns/555/groups/stats", jsonHandler(200, `{"groups":[]}`, nil))
+	ts.on("POST", acct+"/campaigns/555/creatives/stats", jsonHandler(200, `{"creatives":[]}`, nil))
+	c := newTestClient(t, ts)
+	ctx := context.Background()
+	calls := map[string]func([]int64) error{
+		"groups": func(ids []int64) error {
+			_, err := c.Statistics.Groups(ctx, 555, "2026-11-01", "2026-11-10", ids)
+			return err
+		},
+		"creatives": func(ids []int64) error {
+			_, err := c.Statistics.Creatives(ctx, 555, "2026-11-01", "2026-11-10", ids)
+			return err
+		},
+	}
+	for name, call := range calls {
+		if err := call(make([]int64, 5000)); err != nil {
+			t.Errorf("%s: 5000 ID допустимы: %v", name, err)
+		}
+		for _, n := range []int{0, 5001} {
+			if err := call(make([]int64, n)); !errors.Is(err, ErrValidation) {
+				t.Errorf("%s: %d ID — ожидалась ErrValidation, получено %v", name, n, err)
+			}
+		}
+	}
+}

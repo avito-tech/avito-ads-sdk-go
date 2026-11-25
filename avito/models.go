@@ -296,6 +296,43 @@ type StatsData struct {
 	Q50              float64 `json:"q50"`
 	Q75              float64 `json:"q75"`
 	VTR              float64 `json:"vtr"`
+	// Conversions — конверсии за день или за период. nil, если конверсии не запрошены
+	// (опция WithConversions) или данных нет. В статистике креативов всегда nil.
+	Conversions *Conversions `json:"conversions"`
+}
+
+// Conversions — конверсии кампании или группы. Поле равно nil (GoalType — ""), если API
+// не вернул значение; ноль означает, что значение известно и равно нулю.
+type Conversions struct {
+	// Contacts и Subscriptions — контакты и подписки; только для click-in кампаний.
+	Contacts      *ConversionData `json:"contacts"`
+	Subscriptions *ConversionData `json:"subscriptions"`
+	// GoalHits — количество событий главной цели click-out кампании.
+	GoalHits *int64 `json:"goalHits"`
+	// CPAKopeks — стоимость целевого действия в копейках.
+	CPAKopeks *int64 `json:"cpaKopeks"`
+	// GoalType — целевое действие, по которому рассчитаны CPAKopeks и CR.
+	GoalType ConversionGoalType `json:"goalType"`
+	// CustomGoal — главная цель click-out кампании.
+	CustomGoal *CustomGoal `json:"customGoal"`
+	// CR — отношение целевых событий к кликам (0.05 = 5%).
+	CR *float64 `json:"cr"`
+}
+
+// ConversionData — количество конверсий одного типа с разбивкой по платформам.
+type ConversionData struct {
+	TotalCount   int64   `json:"totalCount"`
+	WebCount     int64   `json:"webCount"`
+	MavCount     int64   `json:"mavCount"`
+	AndroidCount int64   `json:"androidCount"`
+	IOSCount     int64   `json:"iosCount"`
+	CR           float64 `json:"cr"`
+}
+
+// CustomGoal — главная цель click-out кампании.
+type CustomGoal struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 // EntityStatistic — статистика по группе или креативу.
