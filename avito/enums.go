@@ -149,6 +149,19 @@ const (
 	BudgetFrequencyEntirePeriod BudgetFrequency = "entirePeriod"
 )
 
+// ConversionGoalType — тип целевого действия, по которому считаются CPA и CR
+// (Conversions.GoalType). Неизвестное значение API сохраняется строкой.
+type ConversionGoalType string
+
+const (
+	// ConversionGoalTypeContacts — контакты.
+	ConversionGoalTypeContacts ConversionGoalType = "contacts"
+	// ConversionGoalTypeSubscriptions — подписки.
+	ConversionGoalTypeSubscriptions ConversionGoalType = "subscriptions"
+	// ConversionGoalTypeCustomGoal — главная цель click-out кампании (Conversions.CustomGoal).
+	ConversionGoalTypeCustomGoal ConversionGoalType = "customGoal"
+)
+
 // FrequencyPeriod — период частотного ограничения показов (FrequencyRule.Period).
 type FrequencyPeriod string
 

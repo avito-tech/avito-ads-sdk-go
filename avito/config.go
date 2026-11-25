@@ -93,7 +93,7 @@ func WithTokenStorage(storage TokenStorage) Option {
 // WithUserAgent задаёт пользовательскую часть заголовка User-Agent.
 //
 // Метка SDK ("avito-ads-sdk-go/<Version>") не заменяется, а дописывается через
-// пробел: WithUserAgent("my-app/1.0") даст "my-app/1.0 avito-ads-sdk-go/1.4.0".
+// пробел: WithUserAgent("my-app/1.0") даст "my-app/1.0 avito-ads-sdk-go/1.5.1".
 // Если значение уже содержит метку SDK, она не дублируется. Тот же заголовок
 // отправляется и в запрос токена, и в запросы к API.
 func WithUserAgent(ua string) Option {

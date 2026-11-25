@@ -15,10 +15,10 @@ Go SDK для API **Авито Реклама** (Avito Ads API).
 
 ## Версия
 
-Версия SDK равна версии публичного API (swagger): SDK `1.4.0` реализует swagger `1.4.0`.
+Версия SDK равна версии публичного API (swagger): SDK `1.5.1` реализует swagger `1.5.1`.
 
 ```go
-fmt.Println(avito.Version, avito.APIVersion) // 1.4.0 1.4.0
+fmt.Println(avito.Version, avito.APIVersion) // 1.5.1 1.5.1
 ```
 
 Спецификация, по которой собран SDK, лежит в [`openapi.json`](openapi.json).
@@ -103,14 +103,14 @@ client, _ := avito.NewClient(id, secret, accountID,
 ### User-Agent
 
 По умолчанию SDK отправляет `User-Agent: avito-ads-sdk-go/<версия>` (например,
-`avito-ads-sdk-go/1.4.0`) — и в запрос токена, и в запросы к API. `WithUserAgent` не заменяет
+`avito-ads-sdk-go/1.5.1`) — и в запрос токена, и в запросы к API. `WithUserAgent` не заменяет
 метку SDK, а добавляет своё значение перед ней:
 
 | Опция | Заголовок |
 |---|---|
-| не задана | `avito-ads-sdk-go/1.4.0` |
-| `WithUserAgent("my-app/1.0")` | `my-app/1.0 avito-ads-sdk-go/1.4.0` |
-| `WithUserAgent("my-app/1.0 avito-ads-sdk-go/1.4.0")` | без изменений (метка не дублируется) |
+| не задана | `avito-ads-sdk-go/1.5.1` |
+| `WithUserAgent("my-app/1.0")` | `my-app/1.0 avito-ads-sdk-go/1.5.1` |
+| `WithUserAgent("my-app/1.0 avito-ads-sdk-go/1.5.1")` | без изменений (метка не дублируется) |
 
 | Окружение | Базовый адрес |
 |---|---|
@@ -141,9 +141,15 @@ created, _ := client.Advertisers.Create(ctx, avito.AdvertiserInput{
 _ = client.Groups.ChangeBudget(ctx, 555, 100000) // только ручная ставка, значение >= 1
 _ = client.Groups.ChangePrice(ctx, 555, 25)
 
-// Статистика (период <= 100 дней, даты YYYY-MM-DD)
+// Статистика (период <= 100 дней, даты YYYY-MM-DD; до 5000 ID групп или креативов)
 stats, _ := client.Statistics.Campaign(ctx, 555, "2025-01-01", "2025-01-31")
 fmt.Println(stats.Campaign.TotalData.Views, stats.Campaign.TotalData.Clicks)
+
+// Конверсии кампании и групп (у креативов API их не возвращает)
+stats, _ = client.Statistics.Campaign(ctx, 555, "2025-01-01", "2025-01-31", avito.WithConversions())
+if c := stats.Campaign.TotalData.Conversions; c != nil && c.CPAKopeks != nil {
+	fmt.Println(c.GoalType, *c.CPAKopeks) // contacts | subscriptions | customGoal; nil — значения нет
+}
 
 // Пользователи
 _ = client.Users.Add(ctx, 42, avito.UserRoleAdmin)
